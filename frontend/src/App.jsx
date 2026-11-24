@@ -35,6 +35,28 @@ export default function App() {
   const [files, setFiles] = useState([]);
   const [backups, setBackups] = useState([]);
   const [logs, setLogs] = useState([]);
+  const [toast, setToast] = useState('');
+
+  function showToast(msg) {
+    setToast(msg);
+    setTimeout(() => setToast(''), 2500);
+  }
+
+  function copyText(text) {
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(text).then(() => showToast('Copied to clipboard'));
+    } else {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      showToast('Copied to clipboard');
+    }
+  }
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
@@ -87,23 +109,27 @@ export default function App() {
     e.preventDefault();
     await apiFetch('/api/admin/projects', { method: 'POST', body: JSON.stringify(newProj) });
     setNewProj({ name: '', description: '', storage_limit_mb: 500 });
+    showToast('Project created');
     loadDashboardData();
   }
 
   async function toggleStatus(proj) {
     const status = proj.status === 'active' ? 'inactive' : 'active';
     await apiFetch(`/api/admin/projects/${proj.id}`, { method: 'PATCH', body: JSON.stringify({ status }) });
+    showToast(`Project ${status}`);
     loadDashboardData();
   }
 
   async function deleteProject(id) {
     if (!confirm('Delete this project?')) return;
     await apiFetch(`/api/admin/projects/${id}`, { method: 'DELETE' });
+    showToast('Project deleted');
     loadDashboardData();
   }
 
   async function rotateKey(id) {
     await apiFetch(`/api/admin/projects/${id}/rotate-key`, { method: 'POST' });
+    showToast('New API key generated');
     loadDashboardData();
   }
 
@@ -131,6 +157,7 @@ export default function App() {
 
   async function deleteFile(fileId) {
     await apiFetch(`/api/admin/storage/${selectedProjId}/${fileId}`, { method: 'DELETE' });
+    showToast('File deleted');
     loadFiles(selectedProjId);
   }
 
@@ -141,11 +168,13 @@ export default function App() {
 
   async function createBackup() {
     await apiFetch('/api/admin/backups/create', { method: 'POST' });
+    showToast('Backup created');
     loadBackups();
   }
 
   async function restoreBackup(id) {
     await apiFetch(`/api/admin/backups/${id}/restore`, { method: 'POST' });
+    showToast('Backup restored');
     loadBackups();
   }
 
@@ -302,7 +331,7 @@ export default function App() {
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
                       <strong>{p.name} ({p.project_code})</strong>
                       <div style={{ display: 'flex', gap: '0.5rem' }}>
-                        <button className="btn btn-secondary" onClick={() => navigator.clipboard.writeText(snippet)}><Copy width={14} height={14} /> Copy</button>
+                        <button className="btn btn-secondary" onClick={() => copyText(snippet)}><Copy width={14} height={14} /> Copy</button>
                         <button className="btn btn-primary" onClick={() => rotateKey(p.id)}>Rotate Key</button>
                       </div>
                     </div>
@@ -425,6 +454,7 @@ export default function App() {
           </>
         )}
       </main>
+      {toast && <div className="toast">{toast}</div>}
     </div>
   );
 }
