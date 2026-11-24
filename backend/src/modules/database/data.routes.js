@@ -2,6 +2,7 @@ const express = require('express');
 const db = require('../../config/db');
 const { requireProjectAccess } = require('../../middleware/projectIsolation');
 const { requireAdminAuth } = require('../../middleware/auth');
+const { subscribe, broadcast } = require('../../utils/realtime');
 
 const publicDataRouter = express.Router();
 const adminDataRouter = express.Router();
@@ -25,6 +26,29 @@ async function getOrCreateCollection(projectId, collectionName) {
 }
 
 // ================= PUBLIC CLIENT APIs (/api/v1/data/:collection) =================
+// Real-time SSE stream (supports query params ?projectId=...&apiKey=... for browser EventSource)
+publicDataRouter.get('/stream/events', async (req, res, next) => {
+  const projectCode = req.headers['x-project-id'] || req.query.projectId;
+  const apiKey = req.headers['x-api-key'] || req.query.apiKey;
+  if (!projectCode || !apiKey) return res.status(401).json({ error: 'Missing credentials' });
+
+  try {
+    const result = await db.query(
+      `SELECT p.id, p.status, k.is_active FROM projects p
+       JOIN api_keys k ON k.project_id = p.id
+       WHERE p.project_code = $1 AND k.public_key = $2`,
+      [projectCode, apiKey]
+    );
+    const row = result.rows[0];
+    if (!row || !row.is_active || row.status !== 'active') {
+      return res.status(403).json({ error: 'Invalid or inactive project credentials' });
+    }
+    subscribe(row.id, res);
+  } catch (err) {
+    next(err);
+  }
+});
+
 publicDataRouter.use(requireProjectAccess);
 
 publicDataRouter.get('/:collection', async (req, res, next) => {
@@ -55,6 +79,7 @@ publicDataRouter.post('/:collection', async (req, res, next) => {
       'INSERT INTO project_records (project_id, collection_id, data) VALUES ($1, $2, $3) RETURNING id, data, created_at',
       [req.project.id, col.id, req.body]
     );
+    broadcast(req.project.id, 'data_changed', { collection: req.params.collection, action: 'insert', record: inserted.rows[0] });
     res.status(201).json({ record: inserted.rows[0] });
   } catch (err) {
     next(err);
@@ -71,6 +96,7 @@ publicDataRouter.patch('/:collection/:recordId', async (req, res, next) => {
       [JSON.stringify(req.body), req.params.recordId, req.project.id]
     );
     if (!updated.rows[0]) return res.status(404).json({ error: 'Record not found' });
+    broadcast(req.project.id, 'data_changed', { collection: req.params.collection, action: 'update', record: updated.rows[0] });
     res.json({ record: updated.rows[0] });
   } catch (err) {
     next(err);
@@ -84,6 +110,7 @@ publicDataRouter.delete('/:collection/:recordId', async (req, res, next) => {
       [req.params.recordId, req.project.id]
     );
     if (!deleted.rows[0]) return res.status(404).json({ error: 'Record not found' });
+    broadcast(req.project.id, 'data_changed', { collection: req.params.collection, action: 'delete', id: deleted.rows[0].id });
     res.json({ deleted: true, id: deleted.rows[0].id });
   } catch (err) {
     next(err);
