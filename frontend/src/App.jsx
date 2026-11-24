@@ -325,15 +325,66 @@ export default function App() {
             <div className="header"><h2>APIs</h2></div>
             <div style={{ display: 'grid', gap: '1rem' }}>
               {projects.map((p) => {
-                const snippet = `fetch('${window.location.origin}/api/v1/data/contacts', {\n  method: 'POST',\n  headers: {\n    'Content-Type': 'application/json',\n    'x-project-id': '${p.project_code}',\n    'x-api-key': '${p.public_key || ''}'\n  },\n  body: JSON.stringify({ name: 'User' })\n});`;
+                const baseUrl = window.location.origin;
+                const dataEndpoint = `${baseUrl}/api/v1/data/contacts`;
+                const storageEndpoint = `${baseUrl}/api/v1/storage/upload`;
+                const snippet = `fetch('${dataEndpoint}', {\n  method: 'POST',\n  headers: {\n    'Content-Type': 'application/json',\n    'x-project-id': '${p.project_code}',\n    'x-api-key': '${p.public_key || ''}'\n  },\n  body: JSON.stringify({ name: 'User' })\n});`;
+
                 return (
                   <div key={p.id} className="card">
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
-                      <strong>{p.name} ({p.project_code})</strong>
-                      <div style={{ display: 'flex', gap: '0.5rem' }}>
-                        <button className="btn btn-secondary" onClick={() => copyText(snippet)}><Copy width={14} height={14} /> Copy</button>
-                        <button className="btn btn-primary" onClick={() => rotateKey(p.id)}>Rotate Key</button>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                        <strong style={{ fontSize: '1.05rem' }}>{p.name}</strong>
+                        <span className={`badge ${p.status === 'active' ? 'badge-active' : 'badge-inactive'}`}>{p.status}</span>
                       </div>
+                      <button className="btn btn-primary" onClick={() => rotateKey(p.id)}>Rotate Key</button>
+                    </div>
+
+                    <div className="table-wrap" style={{ marginBottom: '1rem' }}>
+                      <table className="table">
+                        <tbody>
+                          <tr>
+                            <td style={{ width: '160px', color: 'var(--text-muted)', fontWeight: 600 }}>Project ID</td>
+                            <td><code>{p.project_code}</code></td>
+                            <td style={{ width: '90px', textAlign: 'right' }}>
+                              <button className="btn btn-secondary" onClick={() => copyText(p.project_code)}><Copy width={14} height={14} /> Copy</button>
+                            </td>
+                          </tr>
+                          <tr>
+                            <td style={{ color: 'var(--text-muted)', fontWeight: 600 }}>Public API Key</td>
+                            <td><code>{p.public_key || '-'}</code></td>
+                            <td style={{ textAlign: 'right' }}>
+                              <button className="btn btn-secondary" onClick={() => copyText(p.public_key || '')}><Copy width={14} height={14} /> Copy</button>
+                            </td>
+                          </tr>
+                          <tr>
+                            <td style={{ color: 'var(--text-muted)', fontWeight: 600 }}>Base URL</td>
+                            <td><code>{baseUrl}</code></td>
+                            <td style={{ textAlign: 'right' }}>
+                              <button className="btn btn-secondary" onClick={() => copyText(baseUrl)}><Copy width={14} height={14} /> Copy</button>
+                            </td>
+                          </tr>
+                          <tr>
+                            <td style={{ color: 'var(--text-muted)', fontWeight: 600 }}>Data Endpoint</td>
+                            <td><code>{dataEndpoint}</code></td>
+                            <td style={{ textAlign: 'right' }}>
+                              <button className="btn btn-secondary" onClick={() => copyText(dataEndpoint)}><Copy width={14} height={14} /> Copy</button>
+                            </td>
+                          </tr>
+                          <tr>
+                            <td style={{ color: 'var(--text-muted)', fontWeight: 600 }}>Storage Upload</td>
+                            <td><code>{storageEndpoint}</code></td>
+                            <td style={{ textAlign: 'right' }}>
+                              <button className="btn btn-secondary" onClick={() => copyText(storageEndpoint)}><Copy width={14} height={14} /> Copy</button>
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
+                      <span className="card-label">Quick Fetch Example</span>
+                      <button className="btn btn-secondary" onClick={() => copyText(snippet)}><Copy width={14} height={14} /> Copy Code</button>
                     </div>
                     <div className="code-box">{snippet}</div>
                   </div>
